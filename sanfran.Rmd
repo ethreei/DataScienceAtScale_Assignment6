@@ -1,0 +1,82 @@
+---
+title: "Is downtown anymore dangerous than suburban San Francisco?"
+author: "David Tran"
+date: "December 10, 2015"
+output: html_document
+---
+
+```{r, include=FALSE}
+# Loading Libraries
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+```
+
+```{r, include=FALSE}
+# Importing data
+dataset <- read.csv("sanfrancisco_incidents_summer_2014.csv")
+dataset$Obs <- 1
+```
+
+# Primary Finding
+
+***Larceny and Theft is the main difference that separates downtown San Fran with Sub-urban San Fran***
+
+In this post, we will be trying to answer the question of what is the difference between San Francisco's different districts and the type of incidents. So let's start by taking a very general approach and seeing how the districts rank by number of incidents.
+
+### Visualization 1
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 5, dpi = 144}
+# Plotting number of incidents by district
+ggplot(data = dataset, aes(PdDistrict,Obs)) + geom_bar(stat="identity", color="steel blue") + xlab("Districts") + ylab("Number of Incidents") 
+```
+
+So clearly, we can point out that the southern district is the worst followed by mission, northern, and central district. To be clear, this is in the general downtown area of San Francisco.
+
+This gives us a good indication of where the neighbourhoods rank but let us dig deeper and see how they rank by the type of incidents. For all we know, the type of incidents could vary widely depending on which district they reside  in.
+
+```{r, include=FALSE}
+categories <- table(dataset$Category)
+categories <- categories[categories>100]
+categories <- names(categories)
+
+subdata1 <- dataset %>% select(2,7,14)
+subdata1 <- subset(subdata1, Category %in% categories)
+subdata1$Category <- as.character(subdata1$Category)
+subdata1$Category <- as.factor(subdata1$Category)
+subdata1 <- subdata1 %>% group_by(Category,PdDistrict) %>% summarize(Obs = sum(Obs))
+```
+
+### Visualization 2
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 10, dpi = 144}
+ggplot(data=subdata1, aes(PdDistrict,Obs)) + geom_bar(stat="identity", aes(fill=Category), show_guide = FALSE) + facet_grid(Category ~ ., scales="free") + theme(strip.text.y = element_text(size = 10, colour = "black", angle = 0)) + xlab("Districts") + ylab("Number of Incidents") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Based on this visualization we can see that the low incident areas across the categories are: Park, Richmond, and Taravel. Do note that these areas are the suburban areas of San Francisco. So regardless of the type of incidents, they are lower relative to the downtown districts.
+
+Here are some other interesting observations:
+
+* Central is where to go for prostitution
+* Mission and Southern are tied for worst areas overall
+* Avoid Ingleside if you're driving or parking
+* Tenderloin seems like the area to shoot up (do drugs)
+* Central has a low rate of kidnapping/missing persons (possibly due to being central?)
+
+```{r, include=FALSE}
+subdata2 <- dataset
+subdata2 <- subset(subdata2, Category %in% categories)
+subdata2$Category <- as.character(subdata2$Category)
+subdata2$Category <- as.factor(subdata2$Category)
+subdata2 <- subdata2 %>% group_by(Category,PdDistrict) %>% summarize(Obs = sum(Obs), X=mean(X), Y=mean(Y))
+
+map1 <- get_map(location = c(lon=mean(range(subdata2$X)), lat=mean(range(subdata2$Y))), zoom=12, maptype="roadmap")
+```
+
+### Visualization 3
+
+```{r, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE, fig.width = 9, fig.height = 8, dpi = 144}
+ggmap(map1) + geom_point(aes(x =X, y =Y, color=Category, size=Obs), data = subdata2, alpha = .35) + scale_x_continuous(limits = range(dataset$X), expand = c(0, 0)) + scale_y_continuous(limits = range(dataset$Y), expand = c(0, 0)) + xlab("Longitude") + ylab("Latitude") + scale_size_continuous(range=c(10,45)) + guides(size=FALSE)
+```
+
+Here is a map visualization of the chart. As we can see, the downtown area (top right circles) is actually not that different from the suburban areas (west and south circles). The major difference between the downtown area and the suburban area is the larceny/theft makes up the majority of the incidents in those areas. This really skews the ***total incidents*** in favor of downtown.
